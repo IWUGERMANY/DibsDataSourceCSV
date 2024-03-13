@@ -16,8 +16,8 @@ authors = [
 
 dependencies = [
     "pandas == 1.5.3",
-    "dibs_computing_core@git+https://github.com/IWUGERMANY/DibsComputingCore",
-    "dibs_data@git+https://github.com/IWUGERMANY/DibsData",
+    "dibs_computing_core",
+    "dibs_daten",
     "numpy == 1.23.2",
     "openpyxl == 3.1.2",
     "geopy == 2.4.0"
