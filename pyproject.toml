@@ -49,3 +49,7 @@ Repository = "https://github.com/IWUGERMANY/DibsDataSourceCSV"
 [tool.black]
 line-length = 88
 target-version = ['py310']
+
+[build-system]
+requires = ["setuptools >= 50.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
