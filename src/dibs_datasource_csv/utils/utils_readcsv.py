@@ -4,7 +4,7 @@ This file only contains methods that simply read different csv files
 
 import os
 import pandas as pd
-from dibs_data.data_utils import get_data_path
+from dibs_daten.data_utils import get_data_path
 
 
 def read_user_building(data_path: str) -> pd.DataFrame | None:

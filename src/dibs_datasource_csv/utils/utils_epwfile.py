@@ -2,7 +2,7 @@ from typing import List
 from geopy.distance import geodesic
 import pandas as pd
 import os
-from dibs_data.data_utils import get_data_path
+from dibs_daten.data_utils import get_data_path
 
 
 def get_weather_files_stations(weather_period: str) -> pd.DataFrame:
