@@ -60,7 +60,7 @@ from dibs_computing_core.iso_simulator.exceptions.usage_time_exception import (
     UsageTimeError,
 )
 
-from dibs_daten.data_utils import get_data_path
+from dibs_data.data_utils import get_data_path
 
 
 class DataSourceCSV(DataSource):
