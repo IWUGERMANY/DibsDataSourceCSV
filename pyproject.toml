@@ -15,10 +15,12 @@ authors = [
 ]
 
 dependencies = [
-    "pandas == 1.5.3",
+#    "pandas == 1.5.3",
+    "pandas == 2.2.1",
+    "numpy>1.22.4,<=2.0.0.dev0",
+#    "numpy == 1.23.2",
     "dibs_computing_core",
     "dibs_daten",
-    "numpy == 1.23.2",
     "openpyxl == 3.1.2",
     "geopy == 2.4.0"
 ]
