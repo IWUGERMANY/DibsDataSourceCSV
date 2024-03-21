@@ -1,6 +1,6 @@
 [project]
 name = "dibs_datasource_csv"
-version = "1.0.0"
+version = "1.0.1"
 description = "This package translates CSV date files to DIBS input. DIBS---Dynamic-ISO-Building-Simulator is a simulation program for calculating the space heating, occupancy hot water, cooling and electricity demand of German non-residential buildings. Further the DIBS calculates the heating value based energy uses, the primary energy and the greenhouse gas emission. The underlying resistance-capacity-model is based on the simplified hourly method of ISO 13790:2008."
 readme = "README.md"
 requires-python = ">=3.10.0"
@@ -18,7 +18,7 @@ dependencies = [
     "pandas == 2.2.1",
     "numpy>1.22.4,<=2.0.0.dev0",
     "dibs_computing_core",
-    "dibs_daten@git+https://github.com/IWUGERMANY/DibsData",
+    "dibs_data@git+https://github.com/IWUGERMANY/DibsData",
     "openpyxl == 3.1.2",
     "geopy == 2.4.0"
 ]
@@ -42,8 +42,6 @@ addopts = [
 
 
 [project.urls]
-Homepage = "https://github.com/IWUGERMANY/DIBS---Dynamic-ISO-Building-Simulator/tree/master"
-Documentation = "https://github.com/IWUGERMANY/DIBS---Dynamic-ISO-Building-Simulator/blob/master/doc/DIBS_documentation.pdf"
 Repository = "https://github.com/IWUGERMANY/DibsDataSourceCSV"
 
 [tool.black]
