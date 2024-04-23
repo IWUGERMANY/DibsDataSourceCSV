@@ -70,6 +70,10 @@ To use the functionalities provided by this repository, follow these steps:
     print(summary_result)
    ```
 
+## Further information
+
+For a detailed installation guide and further information on DIBS see the [wiki](https://github.com/IWUGERMANY/DibsCLI/wiki)
+
 ## Contributing
 
 Contributions to this repository are welcome. If you find any bugs, have feature requests, or want to contribute
