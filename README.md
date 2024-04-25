@@ -35,6 +35,15 @@ To use the functionalities provided by this repository, follow these steps:
     pip install dibs_datasource_csv
     ```
 
+    To use the full DIBS [model](https://iwugermany.github.io/dibs/overview) it is recommended to install the [DibsCLI](https://github.com/IWUGERMANY/DibsCLI) bundling the
+    DibsComputingCore, [DibsDataSourceCSV](https://github.com/IWUGERMANY/DibsDataSourceCSV) and the [DibsData](https://github.com/IWUGERMANY/DibsData). To install the DIBS
+    Command Line Interface (DibsCLI) use the following command:
+
+    ```bash
+    pip install dibs_cli
+    ```
+
+
 2. **Importing DatasourceCSV**: You can import and use the `DataSourceCSV` class directly from the terminal or any
    Python
    environment.
