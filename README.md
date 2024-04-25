@@ -5,7 +5,7 @@
 This repository contains a set of utilities `utils` and a Python file named `datasource_csv`. The primary purpose
 of `datasource_csv` is to provide functionality for handling Excel and CSV files, performing
 calculations on data and returning objects as results. `DataSourceCSV` implements the `DataSource` interface defined in
-another module called [dibs_computing_core](https://github.com/IWUGERMANY/DibsComputingCore).
+another module called [dibs_computing_core](https://github.com/IWUGERMANY/DibsComputingCore). Both packages are part of Python non-domestic building simulation program called 'Dynamic ISO Building Simulator' or short [DIBS](https://iwugermany.github.io/dibs/).
 
 ## File Structure
 
@@ -80,11 +80,17 @@ To use the functionalities provided by this repository, follow these steps:
    ```
 
 ## Further information
+For a detailed installation guide and further information on DIBS see the [wiki](https://github.com/IWUGERMANY/DibsCLI/wiki) and the [DIBS Project Page](https://iwugermany.github.io/dibs/).
 
-For a detailed installation guide and further information on DIBS see the [wiki](https://github.com/IWUGERMANY/DibsCLI/wiki)
+## How to cite
+Please cite the Dynamic ISO Building Simulator (DIBS) as defined [here](https://iwugermany.github.io/dibs/contri).
+
+
+## Legacy
+The current Dynamic ISO Building Simulator (DIBS) is a PyPI package implementation of the initial [DIBS implementation](https://github.com/IWUGERMANY/DIBS---Dynamic-ISO-Building-Simulator) by Julian Bischof, Simon Knoll and Michael Hörner.
+
 
 ## Contributing
-
 Contributions to this repository are welcome. If you find any bugs, have feature requests, or want to contribute
 enhancements, feel free to open an issue or submit a pull request.
 
@@ -93,7 +99,21 @@ enhancements, feel free to open an issue or submit a pull request.
 This repository is licensed under the [MIT License](LICENSE). Feel free to use, modify, and distribute the code as per
 the terms of this license.
 
-## Acknowledgments
+## Acknowledgement
+The Dynamic ISO Building Simulator has been developed in context of the 'ENOB:DataNWG Forschungsdatenbank Nichtwohngebäude' (www.datanwg.de) project and the project 'FlexGeber - Demonstration of flexibility options in the building sector and their integration with the energy system in Germany' at Institut Wohnen und Umwelt (IWU), Darmstadt. The preparation of the publication as a [Python package on Pypi](https://pypi.org/project/dibs-computing-core/) was undertaken within the [EnOB:LezBAU](https://www.lezbau.de/) project, where the DIBS model provides the basis for the calculation of the operational energy within the LezBAU web tool.
+<p float="left">
+  <img src="https://github.com/IWUGERMANY/DibsComputingCore/blob/main/src/img/IWU_Logo.PNG" width="15%" /> 
+</p>  
 
-Special thanks to contributors and maintainers who have helped shape and improve this repository. Your efforts are
-greatly appreciated.
+<b>ENOB:DataNWG<b>
+<b>Funding code:</b>  Fkz.: 03ET1315  
+<b>Project duration:</b>  01.12.2015 until 31.05.2021
+
+<b>FlexGeber<b>
+<b>Funding code:</b>  Fkz.: 03EGB0001  
+<b>Project duration:</b>  01.10.2017 until 31.07.2022
+
+<b>ENOB:LezBAU<b>
+<b>Funding code:</b>  Fkz.: 03EN1074A
+</br><b>Project duration:</b>  01.01.2023 until 31.12.2025
+  
