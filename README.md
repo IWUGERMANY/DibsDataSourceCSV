@@ -117,3 +117,8 @@ The Dynamic ISO Building Simulator has been developed in context of the 'ENOB:Da
 <b>Funding code:</b>  Fkz.: 03EN1074A
 </br><b>Project duration:</b>  01.01.2023 until 31.12.2025
   
+<b>All funded by:</b> 
+<p float="left">
+  <img src="https://github.com/IWUGERMANY/DibsComputingCore/blob/main/src/img/BMWi_Logo.png" width="30%" /> 
+</p> 
+in accordance with the parliamentary resolution of the German Parliament.
