@@ -4,8 +4,8 @@
 
 This repository contains a set of utilities `utils` and a Python file named `datasource_csv`. The primary purpose
 of `datasource_csv` is to provide functionality for handling Excel and CSV files, performing
-calculations on data and returning objects as results. `DataSourceCSV`implements the `DataSource` interface defined in
-another module called `dibs_computing_core`.
+calculations on data and returning objects as results. `DataSourceCSV` implements the `DataSource` interface defined in
+another module called [dibs_computing_core](https://github.com/IWUGERMANY/DibsComputingCore).
 
 ## File Structure
 
