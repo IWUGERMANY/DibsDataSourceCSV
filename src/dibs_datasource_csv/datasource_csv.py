@@ -157,6 +157,9 @@ class DataSourceCSV(DataSource):
         """
         Find occupancy schedule from SIA2024, depending on hk_geb, uk_geb from csv file
         'occupancy_schedules_zuweisungen.csv' which is in the module dibs_data
+
+        The returned hourly People and Appliances factors are also used by the
+        computing core to derive annual and heating-period diagnostic outputs.
         Args:
 
         Returns:
@@ -219,6 +222,9 @@ class DataSourceCSV(DataSource):
     def choose_and_get_the_right_weather_data_from_path(self):
         """
         This method retrieves the right weather data according to the given weather_period and file_name
+
+        The returned hourly dry-bulb temperatures are used directly by the
+        computing core to derive the heating-period day mask and HDD metrics.
         Args:
 
         Returns:
