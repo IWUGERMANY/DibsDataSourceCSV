@@ -223,8 +223,9 @@ class DataSourceCSV(DataSource):
         """
         This method retrieves the right weather data according to the given weather_period and file_name
 
-        The returned hourly dry-bulb temperatures are used directly by the
-        computing core to derive the heating-period day mask and HDD metrics.
+        The returned hourly dry-bulb temperatures and radiation values are used
+        directly by the computing core to derive heating-period weather metrics
+        and raw-weather diagnostic outputs.
         Args:
 
         Returns:

@@ -27,6 +27,11 @@ Those values are consumed by `dibs_computing_core` to derive:
 
 - heating-day masks based on daily mean outdoor temperature
 - `HeatingDays`, `HeatingDegreeDays`, and `RoomHeatingDegreeDays`
+- annual and heating-period mean dry-bulb temperature
+- annual and heating-period totals and hourly means for:
+  - global horizontal radiation
+  - direct normal radiation
+  - diffuse horizontal radiation
 - annual and heating-period mean occupancy/appliance factors
 
 ## Branch-linked development
