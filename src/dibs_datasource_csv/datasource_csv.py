@@ -2,6 +2,7 @@
 This class is one of the implementations of the interface DataSource. This class handles with data from csv files processed with pandas python module
 """
 
+import inspect
 import os
 import pandas as pd
 
@@ -65,6 +66,12 @@ from dibs_data.data_utils import get_data_path
 
 
 class DataSourceCSV(DataSource):
+    BUILDING_PARAMETER_NAMES = [
+        name
+        for name in inspect.signature(Building.__init__).parameters
+        if name != "self"
+    ]
+
     def __init__(
             self,
             data_path: str,
@@ -98,6 +105,10 @@ class DataSourceCSV(DataSource):
     def get_user_building(self):
         """
         This method reads the file which contains the building data to simulate.
+
+        The building object is created through explicit keyword mapping so the
+        CSV schema can evolve safely, including optional thermal-bridge input
+        data.
         Args:
 
         Returns:
@@ -106,11 +117,14 @@ class DataSourceCSV(DataSource):
             Building
         """
         building_data: pd.DataFrame | None = read_user_building(self.data_path)
-        self.building = Building(*building_data.iloc[0].values)
+        self.building = self._create_building_from_row(building_data.iloc[0])
 
     def get_user_buildings(self):
         """
         This method reads the file which contains the building data to simulate.
+
+        Missing `delta_u_thermal_bridging` values default to `0.0`, which keeps
+        legacy CSV files backward compatible.
         Args:
 
         Returns:
@@ -119,7 +133,38 @@ class DataSourceCSV(DataSource):
             list [Building]
         """
         building_data: pd.DataFrame = read_user_buildings(self.data_path)
-        self.buildings = [Building(*row.values) for _, row in building_data.iterrows()]
+        self.buildings = [
+            self._create_building_from_row(row) for _, row in building_data.iterrows()
+        ]
+
+    @classmethod
+    def _create_building_from_row(cls, row: pd.Series) -> Building:
+        row_data = row.to_dict()
+        delta_u_thermal_bridging = row_data.get("delta_u_thermal_bridging", 0.0)
+        if pd.isna(delta_u_thermal_bridging):
+            delta_u_thermal_bridging = 0.0
+        if delta_u_thermal_bridging < 0:
+            raise ValueError(
+                "delta_u_thermal_bridging must be greater than or equal to 0.0"
+            )
+        row_data["delta_u_thermal_bridging"] = delta_u_thermal_bridging
+
+        missing_parameters = [
+            parameter_name
+            for parameter_name in cls.BUILDING_PARAMETER_NAMES
+            if parameter_name not in row_data
+        ]
+        if missing_parameters:
+            raise KeyError(
+                "Missing required building input columns: "
+                + ", ".join(missing_parameters)
+            )
+
+        building_kwargs = {
+            parameter_name: row_data[parameter_name]
+            for parameter_name in cls.BUILDING_PARAMETER_NAMES
+        }
+        return Building(**building_kwargs)
 
     def get_epw_pe_factors(self):
         """
