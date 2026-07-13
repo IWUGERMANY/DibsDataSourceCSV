@@ -1,29 +1,10 @@
-"""
-This class is one of the implementations of the interface DataSource. This class handles with data from csv files processed with pandas python module
-"""
+"""CSV DataSource facade for DibsComputingCore simulations."""
 
-import os
 import pandas as pd
 
 from dibs_computing_core.iso_simulator.data_source.datasource import DataSource
 
-from .utils.utils_epwfile import (
-    get_coordinates_plz,
-    get_weather_files_stations,
-    calculate_minimum_distance_to_next_weather_station,
-    get_filename_with_minimum_distance,
-    get_coordinates_station,
-    get_distance,
-)
-from .utils.utils_normreader import (
-    find_row,
-    get_usage_start_end,
-    get_gain_per_person_and_appliance_and_typ_norm_sia2024,
-    get_gain_per_person_and_appliance_and_typ_norm_18599,
-    get_gain_per_person_and_appliance_and_typ_norm_mza
-)
 from .utils.utils_readcsv import (
-    read_gwp_pe_factors_data,
     read_occupancy_schedules_zuweisungen_data,
     read_schedule_file,
     read_vergleichswerte_zuweisung,
@@ -34,323 +15,236 @@ from .utils.utils_readcsv import (
     read_user_building,
     read_user_buildings,
 )
-from .utils.utils_hkgeb import (
-    hk_and_uk_in_zuweisungen,
-    hk_or_uk_not_in_zuweisungen,
-    hk_in_zuweisungen,
-    uk_in_zuweisungen,
+from .datasource_options import validate_datasource_options
+from .providers.factor_provider import get_epw_pe_factors as load_epw_pe_factors
+from .providers.tek_provider import get_tek as load_tek
+from .providers.profile_provider import ProfileProvider, resolve_hk_uk_row
+from .providers.weather_provider import WeatherProvider
+from .building_mapper import (
+    EXPECTED_BUILDING_COLUMNS,
+    build_building_from_row,
+    prepare_building_dataframe,
 )
-from .utils.utils_tekreader import (
-    get_tek_name,
-    get_tek_data_frame_based_on_tek_name,
-    get_tek_dhw,
-)
-from .utils.utils_schedule import get_schedule_name
 
-from dibs_computing_core.iso_simulator.model.schedule_name import ScheduleName
 from dibs_computing_core.iso_simulator.model.building import Building
-from dibs_computing_core.iso_simulator.model.primary_energy_and_emission_factors import (
-    PrimaryEnergyAndEmissionFactor,
-)
-from dibs_computing_core.iso_simulator.model.weather_data import WeatherData
-from dibs_computing_core.iso_simulator.model.epw_file import EPWFile
 from dibs_computing_core.iso_simulator.exceptions.uk_or_hk_exception import (
     HkOrUkNotFoundError,
 )
-from dibs_computing_core.iso_simulator.exceptions.usage_time_exception import (
-    UsageTimeError,
+from dibs_data.data_utils import get_data_path
+from .utils.utils_epwfile import (
+    calculate_minimum_distance_to_next_weather_station,
+    get_coordinates_plz,
+    get_coordinates_station,
+    get_distance,
+    get_filename_with_minimum_distance,
+    get_weather_files_stations,
 )
 
-from dibs_data.data_utils import get_data_path
+# Re-exported for compatibility with older tests and callers.
+__all__ = ["DataSourceCSV", "EXPECTED_BUILDING_COLUMNS"]
 
 
 class DataSourceCSV(DataSource):
+    """CSV-backed DataSource implementation used by DIBS simulations.
+
+    The class keeps the DataSource interface expected by DibsComputingCore and
+    translates CSV/reference-table data into Core model objects. It owns small
+    per-instance caches for immutable reference lookups such as schedules, EPW
+    metadata, and weather files.
+    """
+
     def __init__(
-            self,
-            data_path: str,
-            profile_from_norm: str,
-            gains_from_group_values: str,
-            usage_from_norm: str,
-            weather_period: str,
-            primary_energy_factor: str
+        self,
+        data_path: str,
+        profile_from_norm: str,
+        gains_from_group_values: str,
+        usage_from_norm: str,
+        weather_period: str,
+        primary_energy_factor: str,
     ):
+        """Initialize options, static tables, result state, and providers."""
+        validate_datasource_options(
+            profile_from_norm=profile_from_norm,
+            gains_from_group_values=gains_from_group_values,
+            usage_from_norm=usage_from_norm,
+            weather_period=weather_period,
+            primary_energy_factor=primary_energy_factor,
+        )
+        self._set_options(
+            data_path=data_path,
+            profile_from_norm=profile_from_norm,
+            gains_from_group_values=gains_from_group_values,
+            usage_from_norm=usage_from_norm,
+            weather_period=weather_period,
+            primary_energy_factor=primary_energy_factor,
+        )
+        self._init_result_state()
+        self._load_static_assignment_tables()
+        self._init_providers()
+
+    def _set_options(
+        self,
+        *,
+        data_path: str,
+        profile_from_norm: str,
+        gains_from_group_values: str,
+        usage_from_norm: str,
+        weather_period: str,
+        primary_energy_factor: str,
+    ) -> None:
+        """Store constructor options after validation."""
         self.data_path = data_path
         self.profile_from_norm = profile_from_norm
         self.gains_from_group_values = gains_from_group_values
         self.usage_from_norm = usage_from_norm
         self.weather_period = weather_period
         self.primary_energy_factor = primary_energy_factor
-        # self.path_to_epw_file = os.path.join('iso_simulator', 'auxiliary', 'weather_data')
+
+    def _init_result_state(self) -> None:
+        """Initialize mutable simulation state populated by DataSource methods."""
         self.epw_file = None
         self.epw_pe_factors = None
         self.building = None
         self.buildings = None
+
+    def _load_static_assignment_tables(self) -> None:
+        """Load static CSV assignment tables used by provider methods."""
         self.occupancy_schedules_assignments = read_occupancy_schedules_zuweisungen_data()
         self.vergleichswerte_zuweisung = read_vergleichswerte_zuweisung()
         self.tek_nwg_comparative_values = read_tek_nwg_comparative_values()
         self.profiles_zuweisungen_data = read_profiles_zuweisungen_data()
-        print(f'Datasource Objekt wurde erstellt')
 
-    """
-    This constructor to initialize an instance of the DataSourceCSV class
-    """
+    def _init_providers(self) -> None:
+        """Initialize provider instances and the caches they own."""
+        self._weather_data_cache = {}
+        self._schedule_cache = {}
+        self.profile_provider = ProfileProvider(self._schedule_cache)
+        self._profile_provider = self.profile_provider
+        self._epw_file_cache = {}
+        self._weather_stations_cache = {}
+        self._plz_codes_data = None
+        self.weather_provider = WeatherProvider(
+            self.weather_period,
+            self._weather_data_cache,
+            self._epw_file_cache,
+            self._weather_stations_cache,
+            self._plz_codes_data,
+        )
+        self._weather_provider = self.weather_provider
 
-    def get_user_building(self):
-        """
-        This method reads the file which contains the building data to simulate.
-        Args:
+    def _get_profile_provider(self) -> ProfileProvider:
+        """Return the profile provider, creating it for tests using __new__ if needed."""
+        if not hasattr(self, "profile_provider"):
+            self._schedule_cache = getattr(self, "_schedule_cache", {})
+            self.profile_provider = ProfileProvider(self._schedule_cache)
+            self._profile_provider = self.profile_provider
+        return self.profile_provider
 
-        Returns:
-            building
-        Return type:
-            Building
-        """
-        building_data: pd.DataFrame | None = read_user_building(self.data_path)
-        self.building = Building(*building_data.iloc[0].values)
-
-    def get_user_buildings(self):
-        """
-        This method reads the file which contains the building data to simulate.
-        Args:
-
-        Returns:
-            buildings
-        Return type:
-            list [Building]
-        """
-        building_data: pd.DataFrame = read_user_buildings(self.data_path)
-        self.buildings = [Building(*row.values) for _, row in building_data.iterrows()]
-
-    def get_epw_pe_factors(self):
-        """
-        This method retrieves all primary energy and emission factors from this file
-        'Primary_energy_and_emission_factors.csv' which is in the module dibs_data
-        Returns:
-            epw_pe_factors
-        Return type:
-            list[PrimaryEnergyAndEmissionFactor]
-        """
-        primary_energy_factor_mapping = {
-            'GEG': 'Primary Energy Factor GEG   [-]',
-            'EPBD2020': 'Primary Energy Factor,tot EPBD2020   [-]',
-            'EPBD2030': 'Primary Energy Factor,tot EPBD2030   [-]'
-        }
-
-        column_name = primary_energy_factor_mapping.get(self.primary_energy_factor)
-
-        gwp_pe_factors: pd.DataFrame = read_gwp_pe_factors_data()
-
-        epw_pe_factors = []
-
-        for _, row in gwp_pe_factors.iterrows():
-            epw_pe_factor = PrimaryEnergyAndEmissionFactor(
-                energy_carrier=row['Energy Carrier'],
-                primary_energy_factor_GEG=row[column_name],
-                relation_calorific_to_heating_value_GEG=row['Relation Calorific to Heating Value GEG  [-]'],
-                gwp_spezific_to_heating_value_GEG=row['GWP spezific to heating value GEG [g/kWh]'],
-                use=row['Use']
+    def _get_weather_provider(self) -> WeatherProvider:
+        """Return the weather provider, creating it for tests using __new__ if needed."""
+        if not hasattr(self, "weather_provider"):
+            self._weather_data_cache = getattr(self, "_weather_data_cache", {})
+            self._epw_file_cache = getattr(self, "_epw_file_cache", {})
+            self._weather_stations_cache = getattr(self, "_weather_stations_cache", {})
+            self._plz_codes_data = getattr(self, "_plz_codes_data", None)
+            self.weather_provider = WeatherProvider(
+                self.weather_period,
+                self._weather_data_cache,
+                self._epw_file_cache,
+                self._weather_stations_cache,
+                self._plz_codes_data,
             )
-            epw_pe_factors.append(epw_pe_factor)
-        self.epw_pe_factors = epw_pe_factors
+            self._weather_provider = self.weather_provider
+        return self.weather_provider
 
-    def get_schedule(self):
-        """
-        Find occupancy schedule from SIA2024, depending on hk_geb, uk_geb from csv file
-        'occupancy_schedules_zuweisungen.csv' which is in the module dibs_data
-        Args:
-
-        Returns:
-            (schedule_name_list, schedule_name) or throws an error
-        Return type:
-            Union[Tuple[List[ScheduleName], str], HkOrUkNotFoundError]
-        """
-
-        # data: pd.DataFrame = read_occupancy_schedules_zuweisungen_data()
-
-        try:
-            if not hk_and_uk_in_zuweisungen(
-                    self.occupancy_schedules_assignments, self.building.hk_geb, self.building.uk_geb
-            ):
-                raise HkOrUkNotFoundError("hk or uk unknown")
-            row: pd.DataFrame = find_row(self.occupancy_schedules_assignments, self.building.uk_geb)
-            schedule_name: str = get_schedule_name(row)
-            schedule_file: pd.DataFrame = read_schedule_file(schedule_name)
-            # print(f'uk_geb: {self.building.uk_geb}, hk_geb: {self.building.hk_geb}, schedule_name: {schedule_name}')
-
-            return (
-                [ScheduleName(*row.values) for _, row in schedule_file.iterrows()],
-                schedule_name,
-                schedule_file.People.sum(),
-            )
-        except HkOrUkNotFoundError as error:
-            print(error)
-
-    def get_tek(self):
-        """
-        Find TEK values from Partial energy parameters to build the comparative values in accordance with the
-        announcement  of 15.04.2021 on the Building Energy Act (GEG) of 2020, depending on hk_geb, uk_geb
-        File names used:
-            - 'TEK_NWG_Vergleichswerte_zuweisung.csv' and TEK_NWG_Vergleichswerte.csv which are in the module dibs_data
-        Args:
-
-        Returns:
-            tek_dhw, tek_name or throws an error
-        Return type:
-            Union[Tuple[float, str], ValueError]
-        """
-        # data: pd.DataFrame = read_vergleichswerte_zuweisung()
-        # db_teks: pd.DataFrame = read_tek_nwg_comparative_values()
-
-        try:
-            if hk_or_uk_not_in_zuweisungen(
-                    self.vergleichswerte_zuweisung, self.building.hk_geb, self.building.uk_geb
-            ):
-                raise HkOrUkNotFoundError("hk or uk unknown")
-            row: pd.DataFrame = find_row(self.vergleichswerte_zuweisung, self.building.uk_geb)
-            tek_name: str = get_tek_name(row)
-            df_tek: pd.DataFrame = get_tek_data_frame_based_on_tek_name(
-                self.tek_nwg_comparative_values, tek_name
-            )
-            tek_dhw: float = get_tek_dhw(df_tek)
-            return tek_dhw, tek_name
-        except HkOrUkNotFoundError as error:
-            print(error)
-
-    def choose_and_get_the_right_weather_data_from_path(self):
-        """
-        This method retrieves the right weather data according to the given weather_period and file_name
-        Args:
-
-        Returns:
-            weather_data_objects
-        Return type:
-            List[WeatherData]
-        """
-        path_data = get_data_path()
-
-        if self.weather_period == "2007-2021":
-            weather_data: pd.DataFrame = read_weather_data(
-                os.path.join(
-                    path_data,
-                    "auxiliary",
-                    "weather_data_TMYx_2007_2021",
-                    self.epw_file.file_name,
-                )
-            )
-        else:
-            weather_data: pd.DataFrame = read_weather_data(
-                os.path.join(
-                    path_data, "auxiliary", "weather_data", self.epw_file.file_name
-                )
-            )
-
-        return [WeatherData(*row.values) for _, row in weather_data.iterrows()]
-
-    def get_epw_file(self) -> EPWFile:
-        """
-        This method finds the epw file depending on building location, Pick latitude and longitude from plz_data and put
-        values into a list and Calculate minimum distance to next weather station
-
-        Args:
-
-         File names used:
-            - 'weather_data/plzcodes.csv', 'weatherfiles_stations_109.csv' and 'weatherfiles_stations_93.csv' which are in the module dibs_data
-
-        Returns:
-            epw_file object
-        Return type:
-            EPWFile
-        """
-        plz_data: pd.DataFrame = read_plz_codes_data()
-
-        weather_files_stations: pd.DataFrame = get_weather_files_stations(
-            self.weather_period
+    def _resolve_hk_uk_row(
+        self,
+        zuweisungen: pd.DataFrame,
+        phase: str,
+        not_found_message: str,
+        not_found_error=HkOrUkNotFoundError,
+    ) -> pd.DataFrame:
+        """Resolve exactly one assignment row for the current building's HK/UK pair."""
+        return resolve_hk_uk_row(
+            zuweisungen,
+            self.building,
+            phase,
+            not_found_message,
+            not_found_error,
         )
 
-        (
-            weather_files_stations["latitude_building"],
-            weather_files_stations["longitude_building"],
-        ) = get_coordinates_plz(plz_data, self.building.plz)
+    def get_user_building(self):
+        """Read one building from the configured input CSV."""
+        building_data: pd.DataFrame = prepare_building_dataframe(
+            read_user_building(self.data_path), "datasource.user_building"
+        )
+        self.building = build_building_from_row(building_data.iloc[0], Building)
 
-        calculate_minimum_distance_to_next_weather_station(weather_files_stations)
+    def get_user_buildings(self):
+        """Read all buildings from the configured input CSV."""
+        building_data: pd.DataFrame = prepare_building_dataframe(
+            read_user_buildings(self.data_path), "datasource.user_buildings"
+        )
+        self.buildings = [
+            build_building_from_row(row, Building) for _, row in building_data.iterrows()
+        ]
 
-        epw_filename: str = get_filename_with_minimum_distance(weather_files_stations)
+    def get_epw_pe_factors(self):
+        """Load primary-energy and emission factors for the configured factor source."""
+        self.epw_pe_factors = load_epw_pe_factors(self.primary_energy_factor)
 
-        coordinates_station: list = get_coordinates_station(weather_files_stations)
+    def get_schedule(self):
+        """Return the occupancy schedule tuple required by DibsComputingCore."""
+        return self._get_profile_provider().get_schedule(
+            building=self.building,
+            occupancy_schedules_assignments=self.occupancy_schedules_assignments,
+            schedule_reader=read_schedule_file,
+        )
 
-        distance: float = get_distance(weather_files_stations)
+    def get_tek(self):
+        """Return the TEK DHW value and TEK category for the current building."""
+        return load_tek(
+            vergleichswerte_zuweisung=self.vergleichswerte_zuweisung,
+            tek_nwg_comparative_values=self.tek_nwg_comparative_values,
+            building=self.building,
+        )
 
-        self.epw_file = EPWFile(epw_filename, coordinates_station, distance)
+    def choose_and_get_the_right_weather_data_from_path(self):
+        """Return WeatherData rows for the selected weather period and EPW file."""
+        return self._get_weather_provider().choose_weather_data_from_path(
+            epw_file=self.epw_file,
+            data_path_reader=get_data_path,
+            weather_reader=read_weather_data,
+        )
+
+    def get_epw_file(self):
+        """Resolve and store the closest EPW file for the current building."""
+        weather_provider = self._get_weather_provider()
+        self.epw_file = weather_provider.get_epw_file(
+            building=self.building,
+            plz_codes_reader=read_plz_codes_data,
+            stations_reader=get_weather_files_stations,
+            coordinates_plz_reader=get_coordinates_plz,
+            distance_calculator=calculate_minimum_distance_to_next_weather_station,
+            filename_reader=get_filename_with_minimum_distance,
+            coordinates_station_reader=get_coordinates_station,
+            distance_reader=get_distance,
+        )
+        self._plz_codes_data = weather_provider.plz_codes_data
 
     def get_usage_time(self):
-        """
-        Find building's usage time DIN 18599-10 or SIA2024
-        Args:
-
-        File name used:
-            - 'profiles_zuweisungen.csv' which is in the module dibs_data
-
-        Returns:
-            usage_start, usage_end or throws error
-        Return type:
-            Union[Tuple[int, int], ValueError]
-        """
-
-        # gains_zuweisungen: pd.DataFrame = read_profiles_zuweisungen_data()
-
-        try:
-            if hk_in_zuweisungen(self.building.hk_geb, self.profiles_zuweisungen_data):
-                if not uk_in_zuweisungen(self.building.uk_geb, self.profiles_zuweisungen_data):
-                    raise UsageTimeError(
-                        "Something went wrong with the function getUsagetime()"
-                    )
-                row: pd.DataFrame = find_row(self.profiles_zuweisungen_data, self.building.uk_geb)
-                return get_usage_start_end(str(self.usage_from_norm), row)
-        except UsageTimeError as error:
-            print(error)
+        """Return usage start and end for the current building."""
+        return self._get_profile_provider().get_usage_time(
+            building=self.building,
+            profiles_zuweisungen_data=self.profiles_zuweisungen_data,
+            usage_from_norm=self.usage_from_norm,
+        )
 
     def get_gains(self):
-        """
-        Find data from DIN V 18599-10 or SIA2024
-        Args:
-            hk_geb: Usage type (main category)
-            uk_geb: Usage type (subcategory)
-            profile_from_norm: data source either 18599-10 or SIA2024 [muss be provided by the user]
-            gains_from_group_values: group in norm low/medium/high [muss be provided by th]
-        File name used:
-            - 'profiles_zuweisungen.csv' which is in the module dibs_data
-
-        Returns:
-            gain_person_and_typ_norm, appliance_gains
-        Return type:
-            Tuple[Tuple[float, str], float]
-        """
-        # data: pd.DataFrame = read_profiles_zuweisungen_data()
-
-        if hk_and_uk_in_zuweisungen(self.profiles_zuweisungen_data, self.building.hk_geb, self.building.uk_geb):
-            row: pd.DataFrame = find_row(self.profiles_zuweisungen_data, self.building.uk_geb)
-
-            gain_person_and_typ_norm: tuple[float, str]
-            appliance_gains: float
-
-            if self.profile_from_norm == "sia2024":
-                (
-                    gain_person_and_typ_norm,
-                    appliance_gains,
-                ) = get_gain_per_person_and_appliance_and_typ_norm_sia2024(
-                    row, self.gains_from_group_values
-                )
-
-            elif self.profile_from_norm == "din18599":
-                (
-                    gain_person_and_typ_norm,
-                    appliance_gains,
-                ) = get_gain_per_person_and_appliance_and_typ_norm_18599(
-                    row, self.gains_from_group_values
-                )
-
-            else:
-                gain_person_and_typ_norm, appliance_gains = get_gain_per_person_and_appliance_and_typ_norm_mza(row,
-                                                                                                               self.gains_from_group_values)
-
-            return gain_person_and_typ_norm, appliance_gains
+        """Return person and appliance gains for the current building."""
+        return self._get_profile_provider().get_gains(
+            building=self.building,
+            profiles_zuweisungen_data=self.profiles_zuweisungen_data,
+            profile_from_norm=self.profile_from_norm,
+            gains_from_group_values=self.gains_from_group_values,
+        )

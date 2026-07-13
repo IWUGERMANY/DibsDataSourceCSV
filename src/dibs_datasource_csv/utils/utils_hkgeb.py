@@ -1,34 +1,16 @@
 """
-This file contains auxiliary functions which used to check if the hk_geb (Usage type (main category)) or uk_geb
-(Usage type (subcategory)) are contained in the imported csv files
-"""
+Helpers for resolving building usage type pairs.
 
-import sys
-import os
+`hk_geb` is the main usage category and `uk_geb` is the subcategory. Both
+values must be resolved together because the same `uk_geb` can only be valid in
+context of the matching `hk_geb` row.
+"""
 
 from pandas import DataFrame
 
-mainPath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, mainPath)
 
-
-def hk_in_zuweisungen(hk_geb: str, gains_zuweisungen: DataFrame) -> bool:
-    return hk_geb in gains_zuweisungen["hk_geb"].values
-
-
-def uk_in_zuweisungen(uk_geb: str, gains_zuweisungen: DataFrame) -> bool:
-    return uk_geb in gains_zuweisungen["uk_geb"].values
-
-
-def hk_and_uk_in_zuweisungen(
-    gains_zuweisungen: DataFrame, hk_geb: str, uk_geb: str
-) -> bool:
-    return hk_in_zuweisungen(hk_geb, gains_zuweisungen) and uk_in_zuweisungen(
-        uk_geb, gains_zuweisungen
-    )
-
-
-def hk_or_uk_not_in_zuweisungen(zuweisungen, hk_geb, uk_geb):
-    return not hk_in_zuweisungen(hk_geb, zuweisungen) or not uk_in_zuweisungen(
-        uk_geb, zuweisungen
-    )
+def find_hk_uk_rows(zuweisungen: DataFrame, hk_geb: str, uk_geb: str) -> DataFrame:
+    """Return rows matching the exact `(hk_geb, uk_geb)` pair."""
+    return zuweisungen[
+        (zuweisungen["hk_geb"] == hk_geb) & (zuweisungen["uk_geb"] == uk_geb)
+    ]

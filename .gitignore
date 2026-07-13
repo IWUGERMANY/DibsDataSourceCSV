@@ -1,0 +1,31 @@
+﻿# Python bytecode/cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build artefacts
+build/
+dist/
+*.egg-info/
+
+# Local runtime/regression outputs
+regression_results/
+
+# Virtual environments
+.venv/
+venv/
+Lib/
+Scripts/
+
+# IDE/local files
+.idea/
+.vscode/
+.env
+.env.*
+
+# Keep project automation scripts versioned
+!/scripts/
+!/scripts/**

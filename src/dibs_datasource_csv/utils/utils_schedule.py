@@ -1,9 +1,6 @@
 import pandas as pd
 
 
-def find_row(zuweisungen: pd.DataFrame, uk_geb: str) -> pd.DataFrame:
-    return zuweisungen[zuweisungen["uk_geb"] == uk_geb]
-
-
 def get_schedule_name(row: pd.DataFrame) -> str:
+    """Extract the occupancy schedule name from an assignment row."""
     return row["schedule_name"].to_string(index=False).strip()
