@@ -12,10 +12,10 @@ license = {file = "LICENSE"}
 authors = [
   {name = "Julian Bischof", email = "j.bischof@iwu.de"},
   {name = "Wail Samjouni", email = "w.samjouni@iwu.de"},
-  {name = "André Müller", email = "a.mueller@iwu.de"},
+  {name = "AndrÃ© MÃ¼ller", email = "a.mueller@iwu.de"},
   {name = "Jens Calisti", email = "j.calisti@iwu.de"},
   {name = "Simon Knoll", email = "j.bischof@iwu.de"},
-  {name = "Michael Hörner", email = "j.bischof@iwu.de"}
+  {name = "Michael HÃ¶rner", email = "j.bischof@iwu.de"}
 ]
 dependencies = [
   "pandas == 2.2.1",
@@ -33,6 +33,12 @@ classifiers = [
   "Programming Language :: Python"
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "build",
+  "twine"
+]
 [project.urls]
 Repository = "https://github.com/IWUGERMANY/DibsDataSourceCSV"
 
